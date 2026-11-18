@@ -1,0 +1,28 @@
+Terraform AWS 네트워크 구성을 진행 중이다. 저장소의 `network/` 디렉터리에 설정이 있다.
+
+구성 요약:
+- Terraform 1.10 이상 필요 (현재 실행 버전 1.17.2)
+- AWS Provider `hashicorp/aws` 5.0 이상
+- 리전: `ap-northeast-2`
+- S3 원격 backend:
+  - bucket: `namkj-s3`
+  - key: `dev/terraform/newapp01/network/terraform.tfstate`
+  - region: `ap-northeast-2`
+  - `use_lockfile = true`
+  - 암호화 활성화
+- AWS 기본 태그: `ManagedBy=Terraform`, `Environment=development`, `Cost=development`
+- VPC CIDR: `10.0.0.0/16`
+- 가용 영역 2개를 사용해 public/private subnet 생성
+- Internet Gateway 및 public routing 설정
+- NAT Gateway는 생성하지 않음
+- optional `existing_vpc_id` 변수와 조회용 data source가 있지만, 기본 네트워크 리소스도 생성하는 구성
+
+`terraform apply`는 정상 완료되어 리소스가 생성되었다. `terraform plan`에서 S3 `PutObject` 412 `PreconditionFailed` 및 lock 관련 메시지가 나온 적이 있다. lock ID는 `858c0ba0-b6c4-59ef-fd3b-9e5b07284380`이며, 잠금 파일 경로는 다음과 같다:
+`s3://namkj-s3/dev/terraform/newapp01/network/terraform.tfstate.tflock`
+
+이 backend는 `use_lockfile = true`로 S3 잠금 파일을 사용하므로 새 DynamoDB lock table은 필요하지 않다. 여러 사용자가 같은 backend key와 workspace를 사용하면 동일한 원격 잠금을 공유한다. 잠금 오류 시 다른 Terraform 실행이 없는지 먼저 확인하고, 실제로 stale lock인 경우에만 `terraform force-unlock` 또는 해당 `.tflock` 객체 삭제를 고려한다. `terraform.tfstate` 객체를 삭제하면 안 된다. S3 버전 관리가 활성화되어 있는지도 확인해야 한다.
+
+작업 디렉터리:
+`/home/ubuntu/dev/github/puny/aws-terraform-app01/network`
+
+필요하면 현재 파일을 직접 확인하고, 변경 전 사용자 의도에 맞춰 진행해라.
