@@ -22,9 +22,12 @@ permissions:
   contents: read
 
 jobs:
-  validate:
+  plan:
     if: github.event_name == 'pull_request'
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
     steps:
       - name: Check out repository
         uses: actions/checkout@v4
@@ -32,16 +35,25 @@ jobs:
       - name: Set up Terraform
         uses: hashicorp/setup-terraform@v3
         with:
-          terraform_version: 1.10.0
+          terraform_version: 1.17.2
+
+      - name: Configure AWS plan credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ vars.AWS_NETWORK_PLAN_ROLE_ARN }}
+          aws-region: ap-northeast-2
 
       - name: Check formatting
         run: terraform -chdir=network fmt -check -recursive
 
-      - name: Initialize without remote state
-        run: terraform -chdir=network init -backend=false -input=false
+      - name: Initialize Terraform
+        run: terraform -chdir=network init -input=false
 
       - name: Validate configuration
         run: terraform -chdir=network validate -no-color
+
+      - name: Plan infrastructure changes
+        run: terraform -chdir=network plan -input=false -out=tfplan
 
   apply:
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
@@ -56,12 +68,12 @@ jobs:
       - name: Set up Terraform
         uses: hashicorp/setup-terraform@v3
         with:
-          terraform_version: 1.10.0
+          terraform_version: 1.17.2
 
-      - name: Configure AWS credentials
+      - name: Configure AWS apply credentials
         uses: aws-actions/configure-aws-credentials@v4
         with:
-          role-to-assume: ${{ vars.AWS_ROLE_ARN }}
+          role-to-assume: ${{ vars.AWS_NETWORK_APPLY_ROLE_ARN }}
           aws-region: ap-northeast-2
 
       - name: Check formatting

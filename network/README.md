@@ -86,21 +86,26 @@ terraform apply
 
 ## GitHub Actions
 
-The workflow at `.github/workflows/terraform.yml` runs formatting and
-configuration validation for pull requests without AWS credentials. On pushes
-to `main`, it assumes an AWS IAM role through GitHub OIDC, then runs `plan` and
-automatically applies the resulting plan. Protect `main` with required pull
-request reviews and status checks so infrastructure changes are reviewed
+The workflow at `.github/workflows/terraform.yml` runs formatting,
+configuration validation, and a read-only Terraform plan for pull requests.
+For pull requests, it assumes a read-only AWS IAM plan role through GitHub OIDC.
+On pushes to `main`, it assumes a separate write-capable apply role, then runs
+`plan` and automatically applies the resulting plan. Protect `main` with required
+pull request reviews and status checks so infrastructure changes are reviewed
 before they are applied.
 
 In the repository's **Settings → Secrets and variables → Actions → Variables**,
-create the repository variable `AWS_ROLE_ARN` with the ARN of the IAM role for
-the workflow. The role must trust the GitHub OIDC provider
-`token.actions.githubusercontent.com` with audience `sts.amazonaws.com` and
-restrict the subject to this repository's `main` branch:
-`repo:puny/aws-terraform-gitops-app01:ref:refs/heads/main`. The PR workflow does
-not receive AWS credentials; this prevents unreviewed Terraform code from
-accessing the state or AWS role.
+create these repository variables:
+
+- `AWS_PLAN_ROLE_ARN`: read-only role used by pull-request plan jobs.
+- `AWS_APPLY_ROLE_ARN`: write role used only by pushes to `main`.
+
+Both roles must trust the GitHub OIDC provider
+`token.actions.githubusercontent.com` with audience `sts.amazonaws.com`. Restrict
+the plan role subject to pull requests:
+`repo:puny/aws-terraform-gitops-app01:pull_request`. Restrict the apply role
+subject to the main branch:
+`repo:puny/aws-terraform-gitops-app01:ref:refs/heads/main`.
 
 Grant the role only the EC2 permissions needed to manage the VPC, Internet
 Gateway, subnets, route tables, routes, and their associations in
