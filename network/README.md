@@ -71,9 +71,8 @@ region consistently for the AWS CLI commands and `versions.tf`.
 
 Use AWS credentials that can manage the resources in the configuration and
 access the S3 state object and its `.tflock` object. The credentials need
-`s3:ListBucket` on the bucket, `s3:GetObject` and `s3:PutObject` on the state
-object, and `s3:GetObject`, `s3:PutObject`, and `s3:DeleteObject` on the
-`.tflock` object.
+`s3:GetObject` and `s3:PutObject` on the state object, and
+`s3:GetObject`, `s3:PutObject`, and `s3:DeleteObject` on the `.tflock` object.
 Run these commands from the `network` directory:
 
 ```sh
@@ -83,38 +82,6 @@ terraform validate
 terraform plan
 terraform apply
 ```
-
-## GitHub Actions
-
-The workflow at `.github/workflows/terraform.yml` runs formatting,
-configuration validation, and a read-only Terraform plan for pull requests.
-For pull requests, it assumes a read-only AWS IAM plan role through GitHub OIDC.
-On pushes to `main`, it assumes a separate write-capable apply role, then runs
-`plan` and automatically applies the resulting plan. Protect `main` with required
-pull request reviews and status checks so infrastructure changes are reviewed
-before they are applied.
-
-In the repository's **Settings → Secrets and variables → Actions → Variables**,
-create these repository variables:
-
-- `AWS_PLAN_ROLE_ARN`: read-only role used by pull-request plan jobs.
-- `AWS_APPLY_ROLE_ARN`: write role used only by pushes to `main`.
-
-Both roles must trust the GitHub OIDC provider
-`token.actions.githubusercontent.com` with audience `sts.amazonaws.com`. Restrict
-the plan role subject to pull requests:
-`repo:puny/aws-terraform-gitops-app01:pull_request`. Restrict the apply role
-subject to the main branch:
-`repo:puny/aws-terraform-gitops-app01:ref:refs/heads/main`.
-
-Grant the role only the EC2 permissions needed to manage the VPC, Internet
-Gateway, subnets, route tables, routes, and their associations in
-`ap-northeast-2`, plus S3 access to the configured state bucket and key. For
-S3 state locking, it needs `s3:GetObject` and `s3:PutObject` on the state object,
-and `s3:GetObject`, `s3:PutObject`, and `s3:DeleteObject` on the `.tflock`
-object. Restrict bucket access to the configured state path and enable S3
-versioning and public access blocking as described above. Grant `s3:ListBucket`
-on the bucket, restricted to the configured state key prefix.
 
 The public and private subnet IDs are available as Terraform outputs. Use a
 public subnet ID when creating a development EC2 instance that needs direct
